@@ -25,6 +25,12 @@ pub fn parse() -> io::Result<()> {
         app.set_text(text.clone());
     }
 
+    match matches.get_flag("chat") {
+        chat => {
+            app.set_chat(chat);
+        }
+    }
+
     if let Some(args) = matches.get_many::<TimeValue>("time") {
         let mut total_secs: u32 = 0;
 
@@ -37,7 +43,7 @@ pub fn parse() -> io::Result<()> {
             total_secs += secs as u32;
         }
 
-        app.set_time(Duration::new(total_secs as u64, 0));
+        app.set_duration(Duration::new(total_secs as u64, 0));
     }
 
     run_app(app)
@@ -53,6 +59,12 @@ fn command() -> Command {
                 .long("text")
                 .action(ArgAction::Set)
                 .help("The text to display below the time")
+                .group("customize"),
+            Arg::new("chat")
+                .short('c')
+                .long("chat")
+                .action(ArgAction::SetTrue)
+                .help("Show the chat")
                 .group("customize"),
             Arg::new("time")
                 .help("Time arguments in the format [t]h, [t]m, or [t]s")
