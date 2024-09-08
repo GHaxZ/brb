@@ -37,16 +37,6 @@ impl Default for App {
 }
 
 impl App {
-    pub fn new(duration: Duration, config: Config) -> Self {
-        Self {
-            config,
-            start_time: Some(Instant::now()),
-            original_duration: Some(duration),
-            remaining_time: Some(duration),
-            exit: false,
-        }
-    }
-
     pub fn set_config(&mut self, config: Config) {
         self.config = config
     }
@@ -219,15 +209,23 @@ impl Widget for &App {
 
         text_display.render(text_area, buf);
 
-        let chat_title =
-            Title::from(" Chat ".fg(self.config.get_color()).bold()).alignment(Alignment::Center);
-        let chat_display = Block::default()
-            .title(chat_title)
-            .border_type(BorderType::Thick)
-            .borders(Borders::ALL);
-        let chat_area = horizontal_layout[2];
+        if self.config.is_chat() {
+            if let Some(twitch_channel) = self.config.get_twitch_channel() {
+                let chat_title = Title::from(
+                    format!(" {} chat ", twitch_channel)
+                        .fg(self.config.get_color())
+                        .bold(),
+                )
+                .alignment(Alignment::Center);
+                let chat_display = Block::default()
+                    .title(chat_title)
+                    .border_type(BorderType::Thick)
+                    .borders(Borders::ALL);
+                let chat_area = horizontal_layout[2];
 
-        chat_display.render(chat_area, buf);
+                chat_display.render(chat_area, buf);
+            }
+        }
     }
 }
 

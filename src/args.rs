@@ -114,11 +114,7 @@ fn time_arg_parser(arg: &str) -> Result<TimeValue, String> {
         "h" => TimeUnit::Hours,
         "m" => TimeUnit::Minutes,
         "s" => TimeUnit::Seconds,
-        _ => {
-            return Err(format!(
-                "Time arguments must end with 'h', 'm', or 's' suffix."
-            ))
-        }
+        _ => return Err("Time arguments must end with 'h', 'm', or 's' suffix.".to_string()),
     };
 
     if value_str.is_empty() {
