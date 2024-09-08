@@ -6,77 +6,55 @@ use ratatui::{
     buffer::Buffer,
     crossterm::event::{self, Event, KeyCode, KeyEvent},
     layout::{Alignment, Constraint, Direction, Layout, Rect},
-    style::{Color, Style, Stylize},
+    style::{Style, Stylize},
     text::Line,
     widgets::{block::Title, Block, Borders, Widget},
     DefaultTerminal, Frame,
 };
 use tui_big_text::{BigText, PixelSize};
 
+use crate::config::Config;
+
 #[derive(Debug)]
 pub struct App {
-    color: Color,
+    config: Config,
     start_time: Option<Instant>,
     original_duration: Option<Duration>,
     remaining_time: Option<Duration>,
-    text: String,
-    chat: bool,
-    hide_timer: bool,
-    progress_bar: bool,
     exit: bool,
 }
 
 impl Default for App {
     fn default() -> Self {
         Self {
-            color: Color::Red,
+            config: Config::default(),
             start_time: None,
             original_duration: None,
             remaining_time: None,
-            text: "Be right back".to_string(),
-            chat: false,
-            hide_timer: false,
-            progress_bar: false,
             exit: false,
         }
     }
 }
 
 impl App {
-    pub fn new(duration: Duration, text: String) -> Self {
+    pub fn new(duration: Duration, config: Config) -> Self {
         Self {
-            color: Color::White,
+            config,
             start_time: Some(Instant::now()),
             original_duration: Some(duration),
             remaining_time: Some(duration),
-            text,
-            chat: false,
-            hide_timer: false,
-            progress_bar: false,
             exit: false,
         }
+    }
+
+    pub fn set_config(&mut self, config: Config) {
+        self.config = config
     }
 
     pub fn set_duration(&mut self, duration: Duration) {
         self.original_duration = Some(duration);
         self.remaining_time = Some(duration);
         self.start_time = Some(Instant::now());
-    }
-
-    pub fn set_text(&mut self, text: String) {
-        self.text = text;
-    }
-
-    pub fn set_chat(&mut self, chat: bool) {
-        self.chat = chat;
-    }
-
-    pub fn set_hide_timer(&mut self, hide_timer: bool) {
-        self.hide_timer = hide_timer;
-    }
-
-    pub fn set_progress_bar(&mut self, progress_bar: bool) {
-        self.progress_bar = progress_bar;
     }
 
     pub fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
@@ -102,7 +80,7 @@ impl App {
         if let (Some(duration), Some(start_time)) = (self.original_duration, self.start_time) {
             let elapsed = start_time.elapsed();
             if elapsed >= duration {
-                if self.hide_timer {
+                if self.config.is_hide_timer() {
                     self.remaining_time = None;
                 } else {
                     self.remaining_time = Some(Duration::ZERO);
@@ -151,9 +129,10 @@ impl App {
 
 impl Widget for &App {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let text_lines: Vec<Line> = self.text.split('\n').map(Line::from).collect();
+        let text = self.config.get_text();
+        let text_lines: Vec<Line> = text.split('\n').map(Line::from).collect();
 
-        let horizontal_constraints = if self.chat {
+        let horizontal_constraints = if self.config.is_chat() {
             vec![
                 Constraint::Fill(1),
                 Constraint::Ratio(2, 3),
@@ -198,7 +177,7 @@ impl Widget for &App {
             let time_str = format_duration(*duration);
             let time_display = BigText::builder()
                 .pixel_size(PixelSize::Full)
-                .style(Style::new().fg(self.color))
+                .style(Style::new().fg(self.config.get_color()))
                 .lines(vec![time_str.into()])
                 .centered()
                 .build();
@@ -207,14 +186,14 @@ impl Widget for &App {
             time_display.render(time_area, buf);
 
             if let Some(percentage) = &self.time_percentage() {
-                if self.progress_bar {
+                if self.config.is_progress_bar() {
                     let progress_display = Gauge::default()
                         .block(
                             Block::default()
                                 .borders(Borders::NONE)
                                 .padding(Padding::uniform(1)),
                         )
-                        .gauge_style(Style::new().fg(self.color))
+                        .gauge_style(Style::new().fg(self.config.get_color()))
                         .use_unicode(true)
                         .percent(*percentage);
 
@@ -240,7 +219,8 @@ impl Widget for &App {
 
         text_display.render(text_area, buf);
 
-        let chat_title = Title::from(" Chat ".fg(self.color).bold()).alignment(Alignment::Center);
+        let chat_title =
+            Title::from(" Chat ".fg(self.config.get_color()).bold()).alignment(Alignment::Center);
         let chat_display = Block::default()
             .title(chat_title)
             .border_type(BorderType::Thick)
