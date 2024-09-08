@@ -1,6 +1,7 @@
 use std::io;
 use std::time::{Duration, Instant};
 
+use ratatui::widgets::{BorderType, Gauge, Padding};
 use ratatui::{
     buffer::Buffer,
     crossterm::event::{self, Event, KeyCode, KeyEvent},
@@ -20,6 +21,8 @@ pub struct App {
     remaining_time: Option<Duration>,
     text: String,
     chat: bool,
+    hide_timer: bool,
+    progress_bar: bool,
     exit: bool,
 }
 
@@ -32,6 +35,8 @@ impl Default for App {
             remaining_time: None,
             text: "Be right back".to_string(),
             chat: false,
+            hide_timer: false,
+            progress_bar: false,
             exit: false,
         }
     }
@@ -46,6 +51,8 @@ impl App {
             remaining_time: Some(duration),
             text,
             chat: false,
+            hide_timer: false,
+            progress_bar: false,
             exit: false,
         }
     }
@@ -64,6 +71,14 @@ impl App {
         self.chat = chat;
     }
 
+    pub fn set_hide_timer(&mut self, hide_timer: bool) {
+        self.hide_timer = hide_timer;
+    }
+
+    pub fn set_progress_bar(&mut self, progress_bar: bool) {
+        self.progress_bar = progress_bar;
+    }
+
     pub fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
         let redraw_rate = Duration::from_millis(100);
         let mut last_tick = Instant::now();
@@ -74,7 +89,7 @@ impl App {
             let now = Instant::now();
             if now.duration_since(last_tick) >= redraw_rate {
                 self.update_time();
-                last_tick = now; // Update the last tick time to the current time
+                last_tick = now;
             }
 
             terminal.draw(|frame| self.draw(frame))?;
@@ -86,12 +101,27 @@ impl App {
     fn update_time(&mut self) {
         if let (Some(duration), Some(start_time)) = (self.original_duration, self.start_time) {
             let elapsed = start_time.elapsed();
-            let remaining_time = if elapsed >= duration {
-                Duration::ZERO
+            if elapsed >= duration {
+                if self.hide_timer {
+                    self.remaining_time = None;
+                } else {
+                    self.remaining_time = Some(Duration::ZERO);
+                }
             } else {
-                duration - elapsed
+                self.remaining_time = Some(duration - elapsed);
             };
-            self.remaining_time = Some(remaining_time);
+        }
+    }
+
+    fn time_percentage(&self) -> Option<u16> {
+        if let (Some(start_time), Some(original_duration)) =
+            (&self.start_time, &self.original_duration)
+        {
+            let elapsed = start_time.elapsed().as_secs_f64();
+            let total = original_duration.as_secs_f64();
+            Some(((elapsed / total) * 100.0).min(100.0) as u16)
+        } else {
+            None
         }
     }
 
@@ -149,6 +179,7 @@ impl Widget for &App {
                 Constraint::Max(8),
                 Constraint::Max(4 * text_lines.len() as u16),
                 Constraint::Fill(1),
+                Constraint::Max(3),
             ]
         } else {
             vec![
@@ -174,6 +205,24 @@ impl Widget for &App {
 
             let time_area = vertical_layout[1];
             time_display.render(time_area, buf);
+
+            if let Some(percentage) = &self.time_percentage() {
+                if self.progress_bar {
+                    let progress_display = Gauge::default()
+                        .block(
+                            Block::default()
+                                .borders(Borders::NONE)
+                                .padding(Padding::uniform(1)),
+                        )
+                        .gauge_style(Style::new().fg(self.color))
+                        .use_unicode(true)
+                        .percent(*percentage);
+
+                    let progress_area = vertical_layout[4];
+
+                    progress_display.render(progress_area, buf);
+                }
+            }
         }
 
         let text_display = BigText::builder()
@@ -191,8 +240,11 @@ impl Widget for &App {
 
         text_display.render(text_area, buf);
 
-        let chat_title = Title::from(" Chat ".fg(self.color)).alignment(Alignment::Center);
-        let chat_display = Block::default().title(chat_title).borders(Borders::ALL);
+        let chat_title = Title::from(" Chat ".fg(self.color).bold()).alignment(Alignment::Center);
+        let chat_display = Block::default()
+            .title(chat_title)
+            .border_type(BorderType::Thick)
+            .borders(Borders::ALL);
         let chat_area = horizontal_layout[2];
 
         chat_display.render(chat_area, buf);

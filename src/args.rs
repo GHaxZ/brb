@@ -31,6 +31,18 @@ pub fn parse() -> io::Result<()> {
         }
     }
 
+    match matches.get_flag("hide-timer") {
+        hide_timer => {
+            app.set_hide_timer(hide_timer);
+        }
+    }
+
+    match matches.get_flag("progress-bar") {
+        progress_bar => {
+            app.set_progress_bar(progress_bar);
+        }
+    }
+
     if let Some(args) = matches.get_many::<TimeValue>("time") {
         let mut total_secs: u32 = 0;
 
@@ -61,10 +73,19 @@ fn command() -> Command {
                 .help("The text to display below the time")
                 .group("customize"),
             Arg::new("chat")
-                .short('c')
                 .long("chat")
                 .action(ArgAction::SetTrue)
                 .help("Show the chat")
+                .group("customize"),
+            Arg::new("hide-timer")
+                .long("hide-timer")
+                .action(ArgAction::SetTrue)
+                .help("Hide the timer when it is finished")
+                .group("customize"),
+            Arg::new("progress-bar")
+                .long("progress-bar")
+                .action(ArgAction::SetTrue)
+                .help("Display a progress bar of the timers progress")
                 .group("customize"),
             Arg::new("time")
                 .help("Time arguments in the format [t]h, [t]m, or [t]s")
