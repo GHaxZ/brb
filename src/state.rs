@@ -122,20 +122,21 @@ impl Widget for &App {
         let text = self.config.get_text();
         let text_lines: Vec<Line> = text.split('\n').map(Line::from).collect();
 
-        let horizontal_constraints = if self.config.is_chat() {
-            vec![
-                Constraint::Fill(1),
-                Constraint::Ratio(2, 3),
-                Constraint::Ratio(1, 3),
-                Constraint::Fill(1),
-            ]
-        } else {
-            vec![
-                Constraint::Fill(1),
-                Constraint::Ratio(3, 3),
-                Constraint::Fill(1),
-            ]
-        };
+        let horizontal_constraints =
+            if self.config.is_chat() && self.config.get_twitch_channel().is_some() {
+                vec![
+                    Constraint::Fill(1),
+                    Constraint::Ratio(2, 3),
+                    Constraint::Ratio(1, 3),
+                    Constraint::Fill(1),
+                ]
+            } else {
+                vec![
+                    Constraint::Fill(1),
+                    Constraint::Ratio(3, 3),
+                    Constraint::Fill(1),
+                ]
+            };
 
         let horizontal_layout = Layout::default()
             .direction(Direction::Horizontal)
