@@ -13,6 +13,7 @@ use ratatui::{
 };
 use tui_big_text::{BigText, PixelSize};
 
+use crate::chat::Chat;
 use crate::config::Config;
 
 #[derive(Debug)]
@@ -222,9 +223,17 @@ impl Widget for &App {
                     .title(chat_title)
                     .border_type(BorderType::Thick)
                     .borders(Borders::ALL);
+
                 let chat_area = horizontal_layout[2];
 
+                let messages_area = chat_display.clone().inner(horizontal_layout[2]);
+
                 chat_display.render(chat_area, buf);
+
+                let messages_display = Chat::new(twitch_channel.clone());
+                messages_display.run();
+
+                messages_display.render(messages_area, buf);
             }
         }
     }

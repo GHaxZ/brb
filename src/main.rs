@@ -3,6 +3,7 @@
 use std::io;
 
 mod args;
+mod chat;
 mod config;
 mod state;
 
