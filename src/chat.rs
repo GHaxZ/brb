@@ -5,19 +5,80 @@ use ratatui::{
     text::{Span, Text},
     widgets::{Paragraph, Widget, Wrap},
 };
+use std::io;
 use std::sync::{Arc, Mutex};
+use tokio::runtime::{Builder, Runtime};
+use tokio::sync::mpsc;
 use twitch_irc::{
-    login::StaticLoginCredentials, message::ServerMessage, ClientConfig, SecureTCPTransport,
-    TwitchIRCClient,
+    login::StaticLoginCredentials,
+    message::{RGBColor, ServerMessage},
+    ClientConfig, SecureTCPTransport, TwitchIRCClient,
 };
 
-pub struct ChatMessage {
+pub struct TwitchClient {
+    runtime: Runtime,
+    tx: mpsc::Sender<TwitchMessage>,
+}
+
+impl TwitchClient {
+    pub fn new(tx: mpsc::Sender<TwitchMessage>) -> Self {
+        Self {
+            runtime: Builder::new_multi_thread()
+                .worker_threads(1)
+                .enable_all()
+                .build()
+                .unwrap(),
+            tx,
+        }
+    }
+
+    pub fn start(&mut self, channel: String) -> io::Result<()> {
+        let tx = self.tx.clone();
+        let config = ClientConfig::default();
+        let (mut incoming_messages, client) =
+            TwitchIRCClient::<SecureTCPTransport, StaticLoginCredentials>::new(config);
+
+        self.runtime.spawn(async move {
+            if let Err(e) = client.join(channel.clone()) {
+                eprintln!("Failed to join Twitch channel: {:?}", e);
+                return;
+            }
+
+            while let Some(message) = incoming_messages.recv().await {
+                match message {
+                    ServerMessage::Privmsg(msg) => {
+                        let name_color = msg.name_color.unwrap_or(RGBColor {
+                            r: 255,
+                            g: 255,
+                            b: 255,
+                        });
+                        let color = Color::Rgb(name_color.r, name_color.g, name_color.b);
+
+                        let chat_message =
+                            TwitchMessage::new(color, msg.sender.name, msg.message_text);
+
+                        // Send the message to the TUI via the channel
+                        if tx.send(chat_message).await.is_err() {
+                            eprintln!("Failed to send message to TUI");
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        });
+
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct TwitchMessage {
     pub sender_color: Color,
     pub sender: String,
     pub message: String,
 }
 
-impl ChatMessage {
+impl TwitchMessage {
     fn new(sender_color: Color, sender: String, message: String) -> Self {
         Self {
             sender_color,
@@ -25,9 +86,7 @@ impl ChatMessage {
             message,
         }
     }
-}
 
-impl ChatMessage {
     fn to_paragraph(&self) -> Paragraph<'_> {
         let sender = Span::styled(
             format!("{}: ", self.sender),
@@ -42,61 +101,37 @@ impl ChatMessage {
     }
 }
 
-pub struct Chat {
-    twitch_channel: String,
-    messages: Arc<Mutex<Vec<ChatMessage>>>,
+pub struct TwitchChat {
+    twitch_client: TwitchClient,
+    messages: Arc<Mutex<Vec<TwitchMessage>>>,
+    rx: mpsc::Receiver<TwitchMessage>,
 }
 
-impl Chat {
-    pub fn new(twitch_channel: String) -> Self {
+impl TwitchChat {
+    pub fn new() -> Self {
+        // Create an mpsc channel for communication between async Twitch client and TUI
+        let (tx, rx) = mpsc::channel(100);
         Self {
-            twitch_channel,
+            twitch_client: TwitchClient::new(tx),
             messages: Arc::new(Mutex::new(Vec::new())),
+            rx,
         }
     }
 
-    pub async fn run(&self) {
-        let config = ClientConfig::default();
-        let (mut incoming_messages, client) =
-            TwitchIRCClient::<SecureTCPTransport, StaticLoginCredentials>::new(config);
+    pub fn start(&mut self, channel_name: String) -> io::Result<()> {
+        self.twitch_client.start(channel_name)
+    }
 
-        let messages = Arc::clone(&self.messages);
-
-        // Spawn an async task to handle incoming IRC messages
-        tokio::spawn(async move {
-            while let Some(message) = incoming_messages.recv().await {
-                match message {
-                    ServerMessage::Privmsg(msg) => {
-                        let color = match msg.name_color {
-                            Some(c) => Color::Rgb(c.r, c.g, c.b),
-                            None => Color::White,
-                        };
-
-                        let chat_message =
-                            ChatMessage::new(color, msg.sender.name, msg.message_text);
-
-                        let mut messages = messages.lock().unwrap();
-                        messages.push(chat_message);
-                        if messages.len() > 100 {
-                            // Limit size to avoid memory issues
-                            messages.remove(0);
-                        }
-                    }
-                    _ => {}
-                }
-            }
-        });
-
-        // Join the Twitch channel
-        if let Err(e) = client.join(self.twitch_channel.clone()) {
-            eprintln!("Failed to join Twitch channel: {:?}", e);
+    pub fn poll_messages(&mut self) {
+        // Non-blocking read from the mpsc channel
+        while let Ok(message) = self.rx.try_recv() {
+            self.messages.lock().unwrap().push(message);
         }
     }
 }
 
-impl Widget for Chat {
+impl Widget for &TwitchChat {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        // Lock the messages to read them
         let messages = self.messages.lock().unwrap();
 
         let layout = Layout::default()

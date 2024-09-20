@@ -1,6 +1,3 @@
-use std::io;
-use std::time::{Duration, Instant};
-
 use ratatui::widgets::{BorderType, Gauge, Padding};
 use ratatui::{
     buffer::Buffer,
@@ -11,14 +8,17 @@ use ratatui::{
     widgets::{block::Title, Block, Borders, Widget},
     DefaultTerminal, Frame,
 };
+use std::io;
+use std::time::{Duration, Instant};
+use tokio::runtime::Runtime;
 use tui_big_text::{BigText, PixelSize};
 
-use crate::chat::Chat;
+use crate::chat::TwitchChat;
 use crate::config::Config;
 
-#[derive(Debug)]
 pub struct App {
     config: Config,
+    chat: TwitchChat,
     start_time: Option<Instant>,
     original_duration: Option<Duration>,
     remaining_time: Option<Duration>,
@@ -29,6 +29,7 @@ impl Default for App {
     fn default() -> Self {
         Self {
             config: Config::default(),
+            chat: TwitchChat::new(),
             start_time: None,
             original_duration: None,
             remaining_time: None,
@@ -49,6 +50,17 @@ impl App {
     }
 
     pub fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
+        // Create a new Tokio runtime for the async Twitch chat handling
+        let rt = Runtime::new().unwrap();
+
+        if self.config.is_chat() && self.config.get_twitch_channel().is_some() {
+            let twitch_channel = self.config.get_twitch_channel().unwrap().clone();
+            // Use the Tokio runtime to start the Twitch chat asynchronously
+            rt.block_on(async {
+                self.chat.start(twitch_channel).unwrap();
+            });
+        }
+
         let redraw_rate = Duration::from_millis(100);
         let mut last_tick = Instant::now();
 
@@ -59,6 +71,9 @@ impl App {
             if now.duration_since(last_tick) >= redraw_rate {
                 self.update_time();
                 last_tick = now;
+
+                // Poll new Twitch messages in each loop iteration
+                self.chat.poll_messages();
             }
 
             terminal.draw(|frame| self.draw(frame))?;
@@ -230,10 +245,7 @@ impl Widget for &App {
 
                 chat_display.render(chat_area, buf);
 
-                let messages_display = Chat::new(twitch_channel.clone());
-                messages_display.run();
-
-                messages_display.render(messages_area, buf);
+                self.chat.render(messages_area, buf);
             }
         }
     }
