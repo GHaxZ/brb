@@ -1,15 +1,15 @@
 /*
 *   TODO:
-*   Make the chat messages appear from bottom
-*   Add padding between messages
+*   Make the chat messages scroll down if there are too many and new ones appear
+*   Clean up the abomination that is line wrapping (please lord forgive me)
 */
 
 use ratatui::{
     buffer::Buffer,
     layout::{Alignment, Rect},
     style::{Color, Modifier, Style},
-    text::{Line, Span},
-    widgets::{Block, BorderType, Borders, Padding, Paragraph, Widget, Wrap},
+    text::{Line, Span, Text},
+    widgets::{Block, BorderType, Borders, List, ListDirection, Padding, Widget},
 };
 use std::io;
 use std::sync::{Arc, Mutex};
@@ -86,15 +86,43 @@ impl TwitchMessage {
         }
     }
 
-    fn to_line(&self) -> Line<'_> {
-        let sender = Span::styled(
-            format!("{}: ", self.sender),
-            Style::default().fg(self.sender_color),
-        );
+    fn to_wrapped(&self, max_width: usize) -> Text<'_> {
+        let full_message = format!("{}: {}", self.sender, self.message);
+        let wrapped_lines = textwrap::wrap(full_message.as_str(), max_width);
 
-        let message = Span::raw(&self.message);
+        let mut lines = Vec::new();
+        let mut sender_chars_left = self.sender.len();
 
-        Line::from(vec![sender, message])
+        for wrapped_line in wrapped_lines.iter() {
+            let mut spans = Vec::new();
+            let mut current_idx = 0;
+
+            if sender_chars_left > 0 {
+                let chars_to_color = sender_chars_left.min(wrapped_line.len());
+                let sender_part = &wrapped_line[0..chars_to_color];
+                spans.push(Span::styled(
+                    sender_part.to_string(),
+                    Style::default().fg(self.sender_color),
+                ));
+
+                sender_chars_left -= chars_to_color;
+                current_idx += chars_to_color;
+
+                if sender_chars_left == 0 && current_idx < wrapped_line.len() {
+                    spans.push(Span::raw(": ".to_string()));
+                    current_idx += 2;
+                }
+            }
+
+            if current_idx < wrapped_line.len() {
+                let remaining_part = &wrapped_line[current_idx..];
+                spans.push(Span::raw(remaining_part.to_string()));
+            }
+
+            lines.push(Line::from(spans));
+        }
+
+        Text::from(lines)
     }
 }
 
@@ -157,19 +185,20 @@ impl Widget for &TwitchChat {
             .borders(Borders::ALL)
             .padding(Padding::horizontal(1));
 
-        let mut text_buffer = Vec::new();
-
         let messages = self.messages.lock().unwrap();
 
-        for message in messages.iter() {
-            let message_text = message.to_line();
-            text_buffer.push(message_text);
-        }
+        let messages_area = chat_display.inner(area);
 
-        let paragraph = Paragraph::new(text_buffer)
-            .block(chat_display)
-            .wrap(Wrap { trim: false });
+        let texts: Vec<Text> = messages
+            .iter()
+            .rev()
+            .map(|message| message.to_wrapped(messages_area.width as usize))
+            .collect();
 
-        paragraph.render(area, buf);
+        let list = List::new(texts).direction(ListDirection::BottomToTop);
+
+        chat_display.render(area, buf);
+
+        list.render(messages_area, buf);
     }
 }
