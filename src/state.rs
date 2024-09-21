@@ -55,7 +55,7 @@ impl App {
 
         if self.config.is_chat() {
             if let Some(channel) = self.config.get_twitch_channel() {
-                self.chat = Some(TwitchChat::new(channel));
+                self.chat = Some(TwitchChat::new(self.config.get_color(), channel));
 
                 rt.block_on(async {
                     if let Some(chat) = self.chat.as_mut() {

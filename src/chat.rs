@@ -2,15 +2,14 @@
 *   TODO:
 *   Make the chat messages appear from bottom
 *   Add padding between messages
-*   Maybe make the block title have custom color
 */
 
 use ratatui::{
     buffer::Buffer,
     layout::{Alignment, Rect},
-    style::{Color, Style},
+    style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{block::Title, Block, BorderType, Borders, Padding, Paragraph, Widget, Wrap},
+    widgets::{Block, BorderType, Borders, Padding, Paragraph, Widget, Wrap},
 };
 use std::io;
 use std::sync::{Arc, Mutex};
@@ -100,6 +99,7 @@ impl TwitchMessage {
 }
 
 pub struct TwitchChat {
+    accent_color: Color,
     channel_name: String,
     twitch_client: TwitchClient,
     messages: Arc<Mutex<Vec<TwitchMessage>>>,
@@ -107,9 +107,10 @@ pub struct TwitchChat {
 }
 
 impl TwitchChat {
-    pub fn new(channel_name: String) -> Self {
+    pub fn new(accent_color: Color, channel_name: String) -> Self {
         let (tx, rx) = mpsc::channel(100);
         Self {
+            accent_color,
             channel_name,
             twitch_client: TwitchClient::new(tx),
             messages: Arc::new(Mutex::new(Vec::new())),
@@ -132,12 +133,27 @@ impl TwitchChat {
 
 impl Widget for &TwitchChat {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let chat_title =
-            Title::from(format!(" {} chat ", self.channel_name)).alignment(Alignment::Center);
+        let title_name = Line::from(Span::styled(
+            format!(" {} ", self.channel_name),
+            Style::default()
+                .fg(self.accent_color)
+                .add_modifier(Modifier::BOLD)
+                .add_modifier(Modifier::ITALIC),
+        ))
+        .alignment(Alignment::Center);
+
+        let title_text = Line::from(Span::styled(
+            " chat ",
+            Style::new()
+                .add_modifier(Modifier::BOLD)
+                .add_modifier(Modifier::ITALIC),
+        ))
+        .alignment(Alignment::Center);
 
         let chat_display = Block::default()
-            .title(chat_title)
-            .border_type(BorderType::Thick)
+            .title_top(title_name)
+            .title_bottom(title_text)
+            .border_type(BorderType::Rounded)
             .borders(Borders::ALL)
             .padding(Padding::horizontal(1));
 
