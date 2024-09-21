@@ -1,9 +1,16 @@
+/*
+*   TODO:
+*   Make the chat messages appear from bottom
+*   Add padding between messages
+*   Maybe make the block title have custom color
+*/
+
 use ratatui::{
     buffer::Buffer,
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Alignment, Rect},
     style::{Color, Style},
-    text::{Span, Text},
-    widgets::{Paragraph, Widget, Wrap},
+    text::{Line, Span},
+    widgets::{block::Title, Block, BorderType, Borders, Padding, Paragraph, Widget, Wrap},
 };
 use std::io;
 use std::sync::{Arc, Mutex};
@@ -45,24 +52,17 @@ impl TwitchClient {
             }
 
             while let Some(message) = incoming_messages.recv().await {
-                match message {
-                    ServerMessage::Privmsg(msg) => {
-                        let name_color = msg.name_color.unwrap_or(RGBColor {
-                            r: 255,
-                            g: 255,
-                            b: 255,
-                        });
-                        let color = Color::Rgb(name_color.r, name_color.g, name_color.b);
+                if let ServerMessage::Privmsg(msg) = message {
+                    let name_color = msg.name_color.unwrap_or(RGBColor {
+                        r: 255,
+                        g: 255,
+                        b: 255,
+                    });
+                    let color = Color::Rgb(name_color.r, name_color.g, name_color.b);
 
-                        let chat_message =
-                            TwitchMessage::new(color, msg.sender.name, msg.message_text);
+                    let chat_message = TwitchMessage::new(color, msg.sender.name, msg.message_text);
 
-                        // Send the message to the TUI via the channel
-                        if tx.send(chat_message).await.is_err() {
-                            eprintln!("Failed to send message to TUI");
-                        }
-                    }
-                    _ => {}
+                    tx.send(chat_message).await.unwrap();
                 }
             }
         });
@@ -87,66 +87,73 @@ impl TwitchMessage {
         }
     }
 
-    fn to_paragraph(&self) -> Paragraph<'_> {
+    fn to_line(&self) -> Line<'_> {
         let sender = Span::styled(
             format!("{}: ", self.sender),
             Style::default().fg(self.sender_color),
         );
+
         let message = Span::raw(&self.message);
 
-        let mut text = Text::from(sender);
-        text.extend(Text::from(message));
-
-        Paragraph::new(text).wrap(Wrap { trim: true })
+        Line::from(vec![sender, message])
     }
 }
 
 pub struct TwitchChat {
+    channel_name: String,
     twitch_client: TwitchClient,
     messages: Arc<Mutex<Vec<TwitchMessage>>>,
     rx: mpsc::Receiver<TwitchMessage>,
 }
 
 impl TwitchChat {
-    pub fn new() -> Self {
-        // Create an mpsc channel for communication between async Twitch client and TUI
+    pub fn new(channel_name: String) -> Self {
         let (tx, rx) = mpsc::channel(100);
         Self {
+            channel_name,
             twitch_client: TwitchClient::new(tx),
             messages: Arc::new(Mutex::new(Vec::new())),
             rx,
         }
     }
 
-    pub fn start(&mut self, channel_name: String) -> io::Result<()> {
-        self.twitch_client.start(channel_name)
+    pub fn start(&mut self) -> io::Result<()> {
+        self.twitch_client.start(self.channel_name.clone())
     }
 
     pub fn poll_messages(&mut self) {
-        // Non-blocking read from the mpsc channel
         while let Ok(message) = self.rx.try_recv() {
-            self.messages.lock().unwrap().push(message);
+            let mut messages = self.messages.lock().unwrap();
+
+            messages.push(message);
         }
     }
 }
 
 impl Widget for &TwitchChat {
     fn render(self, area: Rect, buf: &mut Buffer) {
+        let chat_title =
+            Title::from(format!(" {} chat ", self.channel_name)).alignment(Alignment::Center);
+
+        let chat_display = Block::default()
+            .title(chat_title)
+            .border_type(BorderType::Thick)
+            .borders(Borders::ALL)
+            .padding(Padding::horizontal(1));
+
+        let mut text_buffer = Vec::new();
+
         let messages = self.messages.lock().unwrap();
 
-        let layout = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints(
-                messages
-                    .iter()
-                    .map(|_| Constraint::Min(1))
-                    .collect::<Vec<Constraint>>(),
-            )
-            .split(area);
-
-        for (i, message) in messages.iter().enumerate() {
-            let paragraph = message.to_paragraph();
-            paragraph.render(layout[i], buf);
+        for message in messages.iter() {
+            let message_text = message.to_line();
+            text_buffer.push(message_text);
         }
+
+        let paragraph = Paragraph::new(text_buffer)
+            .block(chat_display)
+            .wrap(Wrap { trim: false });
+
+        paragraph.render(area, buf);
     }
 }

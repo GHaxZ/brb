@@ -1,5 +1,6 @@
-//  TODO: Display chat aswell (twitch-irc crate)
-
+/*  TODO:
+*   Clean up the code
+*/
 use std::io;
 
 mod args;

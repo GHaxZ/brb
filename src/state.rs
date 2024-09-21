@@ -1,11 +1,11 @@
-use ratatui::widgets::{BorderType, Gauge, Padding};
+use ratatui::widgets::{Gauge, Padding};
 use ratatui::{
     buffer::Buffer,
     crossterm::event::{self, Event, KeyCode, KeyEvent},
-    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Style, Stylize},
     text::Line,
-    widgets::{block::Title, Block, Borders, Widget},
+    widgets::{Block, Borders, Widget},
     DefaultTerminal, Frame,
 };
 use std::io;
@@ -18,18 +18,19 @@ use crate::config::Config;
 
 pub struct App {
     config: Config,
-    chat: TwitchChat,
+    chat: Option<TwitchChat>,
     start_time: Option<Instant>,
     original_duration: Option<Duration>,
     remaining_time: Option<Duration>,
     exit: bool,
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for App {
     fn default() -> Self {
         Self {
             config: Config::default(),
-            chat: TwitchChat::new(),
+            chat: None,
             start_time: None,
             original_duration: None,
             remaining_time: None,
@@ -50,15 +51,18 @@ impl App {
     }
 
     pub fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
-        // Create a new Tokio runtime for the async Twitch chat handling
         let rt = Runtime::new().unwrap();
 
-        if self.config.is_chat() && self.config.get_twitch_channel().is_some() {
-            let twitch_channel = self.config.get_twitch_channel().unwrap().clone();
-            // Use the Tokio runtime to start the Twitch chat asynchronously
-            rt.block_on(async {
-                self.chat.start(twitch_channel).unwrap();
-            });
+        if self.config.is_chat() {
+            if let Some(channel) = self.config.get_twitch_channel() {
+                self.chat = Some(TwitchChat::new(channel));
+
+                rt.block_on(async {
+                    if let Some(chat) = self.chat.as_mut() {
+                        chat.start().unwrap();
+                    }
+                });
+            }
         }
 
         let redraw_rate = Duration::from_millis(100);
@@ -72,8 +76,9 @@ impl App {
                 self.update_time();
                 last_tick = now;
 
-                // Poll new Twitch messages in each loop iteration
-                self.chat.poll_messages();
+                if let Some(chat) = self.chat.as_mut() {
+                    chat.poll_messages();
+                }
             }
 
             terminal.draw(|frame| self.draw(frame))?;
@@ -226,27 +231,8 @@ impl Widget for &App {
 
         text_display.render(text_area, buf);
 
-        if self.config.is_chat() {
-            if let Some(twitch_channel) = self.config.get_twitch_channel() {
-                let chat_title = Title::from(
-                    format!(" {} chat ", twitch_channel)
-                        .fg(self.config.get_color())
-                        .bold(),
-                )
-                .alignment(Alignment::Center);
-                let chat_display = Block::default()
-                    .title(chat_title)
-                    .border_type(BorderType::Thick)
-                    .borders(Borders::ALL);
-
-                let chat_area = horizontal_layout[2];
-
-                let messages_area = chat_display.clone().inner(horizontal_layout[2]);
-
-                chat_display.render(chat_area, buf);
-
-                self.chat.render(messages_area, buf);
-            }
+        if let Some(chat) = &self.chat {
+            chat.render(horizontal_layout[2], buf);
         }
     }
 }
