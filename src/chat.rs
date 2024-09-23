@@ -1,5 +1,7 @@
 /*
 *   TODO:
+*   Make the message clean up more dynamic, by storing the historical max message area height value
+*   and using it as a max message amount
 *   Clean up the abomination that is line wrapping (please lord forgive me)
 */
 
@@ -184,9 +186,16 @@ impl Widget for &TwitchChat {
             .borders(Borders::ALL)
             .padding(Padding::horizontal(1));
 
-        let messages = self.messages.lock().unwrap();
+        let mut messages = self.messages.lock().unwrap();
 
         let messages_area = chat_display.inner(area);
+
+        let display_message_limit = messages_area.height as usize;
+
+        if messages.len() > display_message_limit {
+            let excess = messages.len() - display_message_limit;
+            messages.drain(0..excess);
+        }
 
         let texts: Vec<Text> = messages
             .iter()
