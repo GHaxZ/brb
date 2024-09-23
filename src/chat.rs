@@ -1,6 +1,5 @@
 /*
 *   TODO:
-*   Make the chat messages scroll down if there are too many and new ones appear
 *   Clean up the abomination that is line wrapping (please lord forgive me)
 */
 
