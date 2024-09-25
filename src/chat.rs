@@ -1,7 +1,5 @@
 /*
 *   TODO:
-*   Make the message clean up more dynamic, by storing the historical max message area height value
-*   and using it as a max message amount
 *   Clean up the abomination that is line wrapping (please lord forgive me)
 */
 
@@ -129,6 +127,7 @@ impl TwitchMessage {
 
 pub struct TwitchChat {
     accent_color: Color,
+    max_height: Arc<Mutex<usize>>,
     channel_name: String,
     twitch_client: TwitchClient,
     messages: Arc<Mutex<Vec<TwitchMessage>>>,
@@ -140,6 +139,7 @@ impl TwitchChat {
         let (tx, rx) = mpsc::channel(100);
         Self {
             accent_color,
+            max_height: Arc::new(Mutex::new(0)),
             channel_name,
             twitch_client: TwitchClient::new(tx),
             messages: Arc::new(Mutex::new(Vec::new())),
@@ -190,7 +190,12 @@ impl Widget for &TwitchChat {
 
         let messages_area = chat_display.inner(area);
 
-        let display_message_limit = messages_area.height as usize;
+        let mut max_height_lock = self.max_height.lock().unwrap();
+        if messages_area.height as usize > *max_height_lock {
+            *max_height_lock = messages_area.height as usize;
+        }
+
+        let display_message_limit = *max_height_lock;
 
         if messages.len() > display_message_limit {
             let excess = messages.len() - display_message_limit;
