@@ -1,6 +1,5 @@
 /*
 *   TODO:
-*   Improve error handling for the twitch client
 *   Clean up the abomination that is line wrapping (please lord forgive me)
 */
 
@@ -51,11 +50,10 @@ impl TwitchClient {
 
         // Spawn a new task on the runtime
         self.runtime.spawn(async move {
-            // Join the provided channel
-            if let Err(e) = client.join(channel.clone()) {
-                eprintln!("Failed to join Twitch channel: {:?}", e);
-                return;
-            }
+            // Join the provided channel, return io::Error if this fails
+            client
+                .join(channel.clone())
+                .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e.to_string()))?;
 
             // While there are messages incoming
             while let Some(message) = incoming_messages.recv().await {
@@ -74,6 +72,9 @@ impl TwitchClient {
                     tx.send(chat_message).await.unwrap();
                 }
             }
+
+            // We have to give type annotations here
+            Ok::<(), io::Error>(())
         });
 
         Ok(())

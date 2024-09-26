@@ -19,6 +19,7 @@ use crate::config::Config;
 pub struct App {
     config: Config,                      // The config used for this App
     chat: Option<TwitchChat>,            // The TwitchChat widget if enabled
+    runtime: Option<Runtime>,            // Tokio runtime used if chat is enabled
     start_time: Option<Instant>,         // The start time of the countdown
     original_duration: Option<Duration>, // The original duration of the countdown
     remaining_time: Option<Duration>,    // The remaining time of the countdown
@@ -31,6 +32,7 @@ impl Default for App {
         Self {
             config: Config::default(),
             chat: None,
+            runtime: None,
             start_time: None,
             original_duration: None,
             remaining_time: None,
@@ -52,22 +54,24 @@ impl App {
 
     // Run the app
     pub fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
-        // Create a new tokio runtime which is used for twitch chat
-        let rt = Runtime::new().unwrap();
-
         // If the chat is enabled
         if self.config.is_chat() {
             // If a twitch channel was configured
             if let Some(channel) = self.config.get_twitch_channel() {
-                // Create a new twitch chat widget
+                // Create a new tokio runtime in case chat is enabled
+                self.runtime = Some(Runtime::new()?);
+
+                // Create a new Twitch chat widget
                 self.chat = Some(TwitchChat::new(self.config.get_color(), channel));
 
-                // Run the chat on a blocking tokio task
-                rt.block_on(async {
-                    if let Some(chat) = self.chat.as_mut() {
-                        chat.start().unwrap();
-                    }
-                });
+                // Run the chat on a blocking Tokio task
+                if let Some(chat) = self.chat.as_mut() {
+                    self.runtime.as_ref().unwrap().block_on(async {
+                        // Try starting the chat and return the result, so potential erros can be
+                        // propagated up
+                        return chat.start();
+                    })?;
+                }
             }
         }
 
@@ -118,7 +122,8 @@ impl App {
                 } else {
                     self.remaining_time = Some(Duration::ZERO);
                 }
-            } else { // Otherwise update the remaining time value
+            } else {
+                // Otherwise update the remaining time value
                 self.remaining_time = Some(duration - elapsed);
             };
         }
@@ -133,7 +138,8 @@ impl App {
             let elapsed = start_time.elapsed().as_secs_f64();
             let total = original_duration.as_secs_f64();
             Some(((elapsed / total) * 100.0).min(100.0) as u16)
-        } else { // Otherwise return None
+        } else {
+            // Otherwise return None
             None
         }
     }
