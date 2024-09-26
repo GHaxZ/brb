@@ -10,7 +10,7 @@ use ratatui::{
 };
 use std::io;
 use std::time::{Duration, Instant};
-use tokio::runtime::Runtime;
+use tokio::runtime::{Builder, Runtime};
 use tui_big_text::{BigText, PixelSize};
 
 use crate::chat::TwitchChat;
@@ -59,7 +59,7 @@ impl App {
             // If a twitch channel was configured
             if let Some(channel) = self.config.get_twitch_channel() {
                 // Create a new tokio runtime in case chat is enabled
-                self.runtime = Some(Runtime::new()?);
+                self.runtime = Some(Builder::new_multi_thread().worker_threads(1).enable_all().build()?);
 
                 // Create a new Twitch chat widget
                 self.chat = Some(TwitchChat::new(self.config.get_color(), channel));
