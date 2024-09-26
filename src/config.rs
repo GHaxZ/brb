@@ -1,8 +1,3 @@
-/*
-*  TODO:
-*  Make the config default value process a little cleaner
-*/
-
 use ratatui::style::Color;
 use serde::Deserialize;
 use serde_with::{serde_as, DefaultOnError};
@@ -11,45 +6,86 @@ use std::{
     io::{self, ErrorKind},
 };
 
-// A color which is deserialized from the toml config file
 #[derive(Debug, Deserialize, Clone)]
 #[serde(untagged)]
+// A color which is deserialized from the toml config file
 pub enum TomlColor {
     Rgb { r: u8, g: u8, b: u8 }, // An RGB color value
     Name(String), // The name of a color preset, such as "red", "yellow", "white", ...
 }
 
 /*
+* The default values are set here
+*/
+const DEFAULT_COLOR: &str = "white";
+const DEFAULT_TEXT: &str = "Be right back";
+const DEFAULT_TWITCH_CHANNEL: Option<String> = None;
+const DEFAULT_CHAT: bool = false;
+const DEFAULT_HIDE_TIMER: bool = true;
+const DEFAULT_PROGRESS_BAR: bool = true;
+
+// Implement Default by calling the default_color() function. We have to do this, because this will
+// be used in case the deserialization fails.
+impl Default for TomlColor {
+    fn default() -> Self {
+        default_color()
+    }
+}
+
+/*
 * These are the configuration values for the program.
-* We use serde_with to insert default values in case they were not provided found during the
+*
+* We use serde_with to insert default values in case they were not provided during the
 * deserialization process
+*
+* We do this by calling a "default_*()" function for each of these values
 */
 #[serde_as]
 #[derive(Debug, Deserialize)]
 pub struct Config {
-    #[serde(default = "default_color")] // Default is "default_color"
+    #[serde(default = "default_color")]
     #[serde_as(deserialize_as = "DefaultOnError")] // Use default if deserialization fails
-    color: Option<TomlColor>, // The UI accent color
-    #[serde(default = "default_text")] // Default is "default_text"
+    color: TomlColor, // The UI accent color
+    #[serde(default = "default_text")]
     text: String, // The text which is displayed in the middle
-    #[serde(default)] // Default is None
+    #[serde(default = "default_twitch_channel")]
     twitch_channel: Option<String>,
-    #[serde(default)] // Default is false
+    #[serde(default = "default_chat")]
     chat: bool, // Whether to display the chat
-    #[serde(default)] // Default is false
+    #[serde(default = "default_hide_timer")]
     hide_timer: bool, // Whether to hide the countdown when it's done
-    #[serde(default)] // Default is false
+    #[serde(default = "default_progress_bar")]
     progress_bar: bool, // Whether to display the progress bar
 }
 
-// This function will return the default color, which is white
-fn default_color() -> Option<TomlColor> {
-    Some(TomlColor::Name("White".to_string())) // Default to White color
+// This function will return the default color
+fn default_color() -> TomlColor {
+    TomlColor::Name(DEFAULT_COLOR.to_string())
 }
 
-// This function will return the default text, which is "Be right back"
+// This function will return the default text
 fn default_text() -> String {
-    "Be right back".to_string()
+    DEFAULT_TEXT.to_string()
+}
+
+// This function will return the default twitch channel
+fn default_twitch_channel() -> Option<String> {
+    DEFAULT_TWITCH_CHANNEL
+}
+
+// This function will return the default chat
+fn default_chat() -> bool {
+    DEFAULT_CHAT
+}
+
+// This function will return the default hide timer
+fn default_hide_timer() -> bool {
+    DEFAULT_HIDE_TIMER
+}
+
+// This function will return the default progress bar
+fn default_progress_bar() -> bool {
+    DEFAULT_PROGRESS_BAR
 }
 
 // Get default config
@@ -58,10 +94,10 @@ impl Default for Config {
         Self {
             color: default_color(),
             text: default_text(),
-            twitch_channel: None,
-            chat: false,
-            hide_timer: false,
-            progress_bar: true,
+            twitch_channel: default_twitch_channel(),
+            chat: default_chat(),
+            hide_timer: default_hide_timer(),
+            progress_bar: default_progress_bar(),
         }
     }
 }
@@ -84,10 +120,7 @@ impl Config {
 
             // Deserialize it
             match toml::from_str::<Config>(&config_str) {
-                Ok(mut config) => {
-                    config.merge_with_defaults();
-                    Ok(config)
-                }
+                Ok(config) => Ok(config),
                 Err(err) => Err(io::Error::new(ErrorKind::InvalidData, err.to_string())),
             }
         } else {
@@ -96,18 +129,18 @@ impl Config {
         }
     }
 
-    // Here we merge the config file values with default values if they are missing
-    fn merge_with_defaults(&mut self) {
-        let default = Self::default();
-
-        if self.color.is_none() {
-            self.color = default.color;
-        }
-        if self.text.is_empty() {
-            self.text = default.text;
-        }
-        if self.twitch_channel.is_none() {
-            self.twitch_channel = default.twitch_channel;
+    // Map a color name to an actual Color variant
+    fn map_color_name(name: &str) -> Color {
+        match name {
+            "black" => Color::Black,
+            "red" => Color::Red,
+            "green" => Color::Green,
+            "yellow" => Color::Yellow,
+            "blue" => Color::Blue,
+            "magenta" => Color::Magenta,
+            "cyan" => Color::Cyan,
+            "white" => Color::White,
+            _ => Self::map_color_name(DEFAULT_COLOR),
         }
     }
 
@@ -115,20 +148,9 @@ impl Config {
     pub fn get_color(&self) -> Color {
         match &self.color {
             // If the color is deserializeable as a RGB color
-            Some(TomlColor::Rgb { r, g, b }) => Color::Rgb(*r, *g, *b),
+            TomlColor::Rgb { r, g, b } => Color::Rgb(*r, *g, *b),
             // If the color is a color preset name
-            Some(TomlColor::Name(name)) => match name.to_lowercase().as_str() {
-                "black" => Color::Black,
-                "red" => Color::Red,
-                "green" => Color::Green,
-                "yellow" => Color::Yellow,
-                "blue" => Color::Blue,
-                "magenta" => Color::Magenta,
-                "cyan" => Color::Cyan,
-                "white" => Color::White,
-                _ => Color::White,
-            },
-            None => Color::White,
+            TomlColor::Name(name) => Self::map_color_name(name.to_lowercase().as_str()),
         }
     }
 
