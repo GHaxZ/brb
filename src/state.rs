@@ -17,12 +17,12 @@ use crate::chat::TwitchChat;
 use crate::config::Config;
 
 pub struct App {
-    config: Config,
-    chat: Option<TwitchChat>,
-    start_time: Option<Instant>,
-    original_duration: Option<Duration>,
-    remaining_time: Option<Duration>,
-    exit: bool,
+    config: Config,                      // The config used for this App
+    chat: Option<TwitchChat>,            // The TwitchChat widget if enabled
+    start_time: Option<Instant>,         // The start time of the countdown
+    original_duration: Option<Duration>, // The original duration of the countdown
+    remaining_time: Option<Duration>,    // The remaining time of the countdown
+    exit: bool,                          // Exit if this is true
 }
 
 #[allow(clippy::derivable_impls)]
@@ -50,13 +50,19 @@ impl App {
         self.start_time = Some(Instant::now());
     }
 
+    // Run the app
     pub fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
+        // Create a new tokio runtime which is used for twitch chat
         let rt = Runtime::new().unwrap();
 
+        // If the chat is enabled
         if self.config.is_chat() {
+            // If a twitch channel was configured
             if let Some(channel) = self.config.get_twitch_channel() {
+                // Create a new twitch chat widget
                 self.chat = Some(TwitchChat::new(self.config.get_color(), channel));
 
+                // Run the chat on a blocking tokio task
                 rt.block_on(async {
                     if let Some(chat) = self.chat.as_mut() {
                         chat.start().unwrap();
@@ -65,44 +71,63 @@ impl App {
             }
         }
 
+        // How often the UI should be forcefully redrawn
         let redraw_rate = Duration::from_millis(100);
+        // Last redraw time
         let mut last_tick = Instant::now();
 
+        // While we don't want to exit
         while !self.exit {
+            // Handle events such as key events
             self.handle_events()?;
 
+            // Current time
             let now = Instant::now();
+
+            // If a redraw should happen
             if now.duration_since(last_tick) >= redraw_rate {
+                // Update the time
                 self.update_time();
                 last_tick = now;
 
+                // Poll chat messages
                 if let Some(chat) = self.chat.as_mut() {
                     chat.poll_messages();
                 }
             }
 
+            // Draw the UI
             terminal.draw(|frame| self.draw(frame))?;
         }
 
         Ok(())
     }
 
+    // Update the time values
     fn update_time(&mut self) {
+        // If a countdown is set
         if let (Some(duration), Some(start_time)) = (self.original_duration, self.start_time) {
+            // How much time has elapsed since the countdown start
             let elapsed = start_time.elapsed();
+
+            // If the countdown has finished
             if elapsed >= duration {
+                // If the the timer is configured to be hidden
                 if self.config.is_hide_timer() {
                     self.remaining_time = None;
                 } else {
                     self.remaining_time = Some(Duration::ZERO);
                 }
             } else {
+                // Otherwise update the remaining time value
                 self.remaining_time = Some(duration - elapsed);
             };
         }
     }
 
+    // Caluclate how much of the time has elapsed in percent
     fn time_percentage(&self) -> Option<u16> {
+        // If a countdown is set
         if let (Some(start_time), Some(original_duration)) =
             (&self.start_time, &self.original_duration)
         {
@@ -110,14 +135,17 @@ impl App {
             let total = original_duration.as_secs_f64();
             Some(((elapsed / total) * 100.0).min(100.0) as u16)
         } else {
+            // Otherwise return None
             None
         }
     }
 
+    // Draw the App
     fn draw(&self, frame: &mut Frame) {
         frame.render_widget(self, frame.area());
     }
 
+    // Handle events
     fn handle_events(&mut self) -> io::Result<()> {
         while event::poll(Duration::from_millis(50))? {
             if let Event::Key(key_event) = event::read()? {
@@ -127,31 +155,37 @@ impl App {
         Ok(())
     }
 
+    // Specifically handle key input events
     fn handle_key_event(&mut self, key_event: KeyEvent) {
         if let KeyCode::Char('q') = key_event.code {
             self.exit();
         }
     }
 
+    // Exit the App
     fn exit(&mut self) {
         self.exit = true;
     }
 }
 
+// Implement Widget for the App so it can be rendered
 impl Widget for &App {
     fn render(self, area: Rect, buf: &mut Buffer) {
+        // Split the text which should be displayed into multiple lines at newline characters
         let text = self.config.get_text();
         let text_lines: Vec<Line> = text.split('\n').map(Line::from).collect();
 
+        // Layout constraints for horizontally aligned widgets
         let horizontal_constraints =
-            if self.config.is_chat() && self.config.get_twitch_channel().is_some() {
+            // If the chat is enabled split the layout in a 2 to 1 ratio
+            if self.chat.is_some() {
                 vec![
                     Constraint::Fill(1),
                     Constraint::Ratio(2, 3),
                     Constraint::Ratio(1, 3),
                     Constraint::Fill(1),
                 ]
-            } else {
+            } else { // Otherwise give the other elements the entire width
                 vec![
                     Constraint::Fill(1),
                     Constraint::Ratio(3, 3),
@@ -159,12 +193,16 @@ impl Widget for &App {
                 ]
             };
 
+        // Split the entire terminal area into a layout based on the constraints
         let horizontal_layout = Layout::default()
             .direction(Direction::Horizontal)
             .constraints(horizontal_constraints)
             .split(area);
 
-        let vertical_constraints = if self.remaining_time.is_some() {
+        // Layout constraints for horizontally aligned widgets
+        let vertical_constraints = 
+        // If there is a remaining time
+        if self.remaining_time.is_some() {
             vec![
                 Constraint::Fill(1),
                 Constraint::Max(8),
@@ -174,7 +212,7 @@ impl Widget for &App {
             ]
         } else {
             vec![
-                Constraint::Fill(1),
+                Constraint::Fill(1), 
                 Constraint::Max(4 * text_lines.len() as u16),
                 Constraint::Fill(1),
             ]

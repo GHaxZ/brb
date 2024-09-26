@@ -9,5 +9,6 @@ mod config;
 mod state;
 
 fn main() -> io::Result<()> {
+    // Parse arguments
     args::parse()
 }
