@@ -118,8 +118,7 @@ impl App {
                 } else {
                     self.remaining_time = Some(Duration::ZERO);
                 }
-            } else {
-                // Otherwise update the remaining time value
+            } else { // Otherwise update the remaining time value
                 self.remaining_time = Some(duration - elapsed);
             };
         }
@@ -134,8 +133,7 @@ impl App {
             let elapsed = start_time.elapsed().as_secs_f64();
             let total = original_duration.as_secs_f64();
             Some(((elapsed / total) * 100.0).min(100.0) as u16)
-        } else {
-            // Otherwise return None
+        } else { // Otherwise return None
             None
         }
     }
@@ -201,30 +199,35 @@ impl Widget for &App {
 
         // Layout constraints for horizontally aligned widgets
         let vertical_constraints = 
-        // If there is a remaining time
+        // If there is a remaining time we reserve some space for the countdown
         if self.remaining_time.is_some() {
             vec![
                 Constraint::Fill(1),
                 Constraint::Max(8),
-                Constraint::Max(4 * text_lines.len() as u16),
+                Constraint::Max(4 * text_lines.len() as u16), // Enough space for all text lines
                 Constraint::Fill(1),
                 Constraint::Max(3),
             ]
-        } else {
+        } else { // Otherwise we allow the other elements to use this space
             vec![
                 Constraint::Fill(1), 
-                Constraint::Max(4 * text_lines.len() as u16),
+                Constraint::Max(4 * text_lines.len() as u16), // Enough space for all text lines
                 Constraint::Fill(1),
             ]
         };
 
+        // Split a part of the horizontal layout based on the constraints
         let vertical_layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints(vertical_constraints)
             .split(horizontal_layout[1]);
 
+        // If some time is remaining on the countdown
         if let Some(duration) = &self.remaining_time {
+            // Format the time nicely
             let time_str = format_duration(*duration);
+
+            // Display it using the BigText widget
             let time_display = BigText::builder()
                 .pixel_size(PixelSize::Full)
                 .style(Style::new().fg(self.config.get_color()))
@@ -232,11 +235,15 @@ impl Widget for &App {
                 .centered()
                 .build();
 
+            // And finally render it at the correct position inside the vertical layout
             let time_area = vertical_layout[1];
             time_display.render(time_area, buf);
 
+            // If we have a completion percentage
             if let Some(percentage) = &self.time_percentage() {
+                // And if the progress bar is enabled
                 if self.config.is_progress_bar() {
+                    // Create a new "Gauge" widget
                     let progress_display = Gauge::default()
                         .block(
                             Block::default()
@@ -247,13 +254,14 @@ impl Widget for &App {
                         .use_unicode(true)
                         .percent(*percentage);
 
+                    // And render it
                     let progress_area = vertical_layout[4];
-
                     progress_display.render(progress_area, buf);
                 }
             }
         }
 
+        // Create a BigText widget for the text
         let text_display = BigText::builder()
             .pixel_size(PixelSize::Quadrant)
             .style(Style::new().white())
@@ -261,6 +269,7 @@ impl Widget for &App {
             .centered()
             .build();
 
+        // And render it in the correct position depending on if the time is displayed
         let text_area = if self.remaining_time.is_some() {
             vertical_layout[2]
         } else {
@@ -269,12 +278,14 @@ impl Widget for &App {
 
         text_display.render(text_area, buf);
 
+        // If we have a chat, render it
         if let Some(chat) = &self.chat {
             chat.render(horizontal_layout[2], buf);
         }
     }
 }
 
+// Helper function for formatting the time
 fn format_duration(duration: Duration) -> String {
     let secs = duration.as_secs();
     let mins = secs / 60;
