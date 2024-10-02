@@ -68,7 +68,9 @@ pub fn parse() -> io::Result<()> {
 // Constructs the CLI arguments
 fn command(config: &Config) -> Command {
     Command::new("brb")
+        .version(env!("CARGO_PKG_VERSION"))
         .group(ArgGroup::new("customize").multiple(true))
+        .group(ArgGroup::new("info").multiple(true))
         .next_help_heading("Customize")
         .args([
             // Set custom text
@@ -152,7 +154,7 @@ fn time_arg_parser(arg: &str) -> Result<TimeValue, String> {
 }
 
 // Run the App
-pub fn run_app(mut app: App) -> io::Result<()> {
+fn run_app(mut app: App) -> io::Result<()> {
     let mut terminal = ratatui::init();
     app.run(&mut terminal)?;
     ratatui::restore();
