@@ -70,7 +70,6 @@ fn command(config: &Config) -> Command {
     Command::new("brb")
         .version(env!("CARGO_PKG_VERSION"))
         .group(ArgGroup::new("customize").multiple(true))
-        .group(ArgGroup::new("info").multiple(true))
         .next_help_heading("Customize")
         .args([
             // Set custom text
