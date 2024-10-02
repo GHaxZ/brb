@@ -18,7 +18,7 @@
   - Change text
   - Change colors
 - **Lightweight**
-  - ~8MB RAM no chat, ~12MB with chat
+  - ~6MB RAM no chat, ~10MB with chat
 
 ## Installation
 
