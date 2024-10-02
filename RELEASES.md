@@ -1,3 +1,3 @@
 # Version 0.1.0
 
-First stable release of brb.
+The first stable release of brb 🎉
