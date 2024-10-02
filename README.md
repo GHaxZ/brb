@@ -22,33 +22,25 @@
 
 ## Installation
 
-**Install using [cargo](https://github.com/rust-lang/cargo) and [git](https://git-scm.com/)**
+Head to the [releases](https://github.com/GHaxZ/brb/releases) page and search for the latest release.
 
+You are presented with multiple ways to install brb:
+- **Shell script**
+  - Useable on Linux and macOS
+  - No extra software required
+  - No automatic updates
+- **Powershell script**
+  - Usable on Windows
+  - No extra software required
+  - No automatic updates
+- **Homebrew**
+  - Usable on Linux and macOS
+  - Extra software required ([homebrew](https://brew.sh/))
+  - Automatic updates
+
+Alternatively, if you have Rust installed, you can compile yourself:
 ```bash
 cargo install --git https://github.com/GHaxZ/brb.git
-```
-
-**Install prebuilt binaries**
-
-**Linux**
-
-```bash
-curl -L https://github.com/GHaxZ/brb/releases/latest/download/<binary-name> -o <binary-name>
-```
-
-**Windows**
-
-Using Powershell:
-
-```bash
-iwr -Uri "https://github.com/GHaxZ/brb/releases/latest/download/<binary-name>" -OutFile "<binary-name>"
-
-```
-
-**macOS**
-
-```bash
-curl -L https://github.com/GHaxZ/brb/releases/latest/download/<binary-name> -o <binary-name>
 ```
 
 ## Usage
