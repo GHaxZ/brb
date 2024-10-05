@@ -25,6 +25,7 @@
 Head to the [releases](https://github.com/GHaxZ/brb/releases) page and search for the latest release.
 
 You are presented with multiple ways to install brb:
+
 - **Shell script**
   - Useable on Linux and macOS
   - No extra software required
@@ -39,6 +40,7 @@ You are presented with multiple ways to install brb:
   - Automatic updates
 
 Alternatively, if you have Rust installed, you can compile yourself:
+
 ```bash
 cargo install --git https://github.com/GHaxZ/brb.git
 ```
@@ -65,6 +67,18 @@ To **set a text** use:
 brb -t "Hello world!"
 ```
 
+To **set accent color**
+
+```bash
+brb --color red
+```
+
+or
+
+```bash
+brb --color 255,0,0
+```
+
 To **see all available commands**, you can run:
 
 ```bash
@@ -80,6 +94,8 @@ Using the right arguments every time is annoying, so instead, you can use a conf
 - **Linux**: ~/.config/brb/brb.toml
 - **Windows**: %APPDATA%\brb\brb.toml
 - **macOS**: ~/Library/Application Support/brb/brb.toml
+
+Or use the `--dir` argument to check the correct location.
 
 #### Example config:
 

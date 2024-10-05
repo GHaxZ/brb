@@ -1,6 +1,9 @@
 use std::{io, time::Duration};
 
-use crate::{config::Config, state::App};
+use crate::{
+    config::{Config, TomlColor},
+    state::App,
+};
 use clap::{Arg, ArgAction, ArgGroup, Command};
 
 // A time unit
@@ -28,12 +31,24 @@ pub fn parse() -> io::Result<()> {
 
     // Check CLI arguments and update the config if necessary
 
+    if matches.get_flag("dir") {
+        return output_dir();
+    }
+
     if let Some(text) = matches.get_one::<String>("text") {
         config.set_text(text.clone());
     }
 
     if let Some(&chat) = matches.get_one::<bool>("chat") {
         config.set_chat(chat);
+    }
+
+    if let Some(twitch) = matches.get_one::<String>("twitch") {
+        config.set_twitch_channel(twitch.clone());
+    }
+
+    if let Some(color) = matches.get_one::<TomlColor>("color") {
+        config.set_color(color.clone());
     }
 
     if let Some(&hide_timer) = matches.get_one::<bool>("hide-timer") {
@@ -86,6 +101,20 @@ fn command(config: &Config) -> Command {
                 .default_value(if config.is_chat() { "true" } else { "false" })
                 .help("Show the chat")
                 .group("customize"),
+            // Set the twitch channel
+            Arg::new("twitch")
+                .long("twitch")
+                .action(ArgAction::Set)
+                .help("The Twitch channel for chat integration")
+                .group("customize"),
+            // Color argument, either color name or RGB value
+            Arg::new("color")
+                .long("color")
+                .action(ArgAction::Set)
+                .value_parser(color_arg_parser)
+                .help("The accent color, either NAME like 'red' or RGB like '255,0,0'")
+                .value_name("NAME | RGB")
+                .group("customize"),
             // Hide the timer after time is up
             Arg::new("hide-timer")
                 .long("hide-timer")
@@ -116,6 +145,13 @@ fn command(config: &Config) -> Command {
                 .value_name("TIME")
                 .value_parser(time_arg_parser), // We use a custom parser here
         ])
+        .group(ArgGroup::new("info").multiple(true))
+        .next_help_heading("Info")
+        .args([Arg::new("dir")
+            .long("dir")
+            .action(ArgAction::SetTrue)
+            .help("Display where the config file should be located")
+            .group("info")])
 }
 
 // Custom parser for time arguments
@@ -131,25 +167,83 @@ fn time_arg_parser(arg: &str) -> Result<TimeValue, String> {
         "m" => TimeUnit::Minutes,
         "s" => TimeUnit::Seconds,
         // Return a CLI parsing error if the character is not valid
-        _ => return Err("Time arguments must end with 'h', 'm', or 's' suffix.".to_string()),
+        _ => return Err("Time arguments must end with 'h', 'm', or 's' suffix".to_string()),
     };
 
     // If no value is provided
     if value_str.is_empty() {
-        return Err(format!("Missing time amount for '{}' time unit.", unit_str));
+        return Err(format!("Missing time amount for '{}' time unit", unit_str));
     }
 
     // Try parsing the value to a u64
     let value = value_str.parse::<u64>().map_err(|_| {
         // Return a CLI parsing error if the value is not a valid number
         format!(
-            "Invalid time amount '{}' for '{}' time unit.",
+            "Invalid time amount '{}' for '{}' time unit",
             value_str, unit_str
         )
     })?;
 
     // If everything went well return a TimeValue instance
     Ok(TimeValue { value, unit })
+}
+
+// Custom parser for color arguments
+fn color_arg_parser(arg: &str) -> Result<TomlColor, String> {
+    // Try to map the arg to a color name
+    if let Some(named_color) = TomlColor::from_name(arg) {
+        return Ok(named_color);
+    }
+
+    // Check if the argument contains separators
+    if !arg.contains(',') {
+        return Err("Invalid color name".to_string());
+    }
+
+    // Check if argument starts or ends with comma
+    if arg.starts_with(',') || arg.ends_with(',') {
+        return Err("Invalid RGB color format, must be 'R,G,B'".to_string());
+    }
+
+    // Parse the RGB values
+    let values: Vec<u8> = arg
+        .split(',')
+        .map(|v| {
+            v.trim()
+                .parse::<u8>()
+                .map_err(|_| format!("Invalid value '{}', must be a number between 0 and 255", v))
+        })
+        .collect::<Result<Vec<u8>, String>>()?;
+
+    let value_count = values.len();
+
+    // Make sure there are exactly 3 values
+    let [r, g, b]: [u8; 3] = values.try_into().map_err(|_| {
+        format!(
+            "Too many RGB values, must be 3, {} were provided",
+            value_count
+        )
+    })?;
+
+    // Return the parsed TomlColor
+    Ok(TomlColor::Rgb { r, g, b })
+}
+
+// Output the config dir
+fn output_dir() -> io::Result<()> {
+    let config_dir = Config::get_config_dir()?
+        .into_os_string()
+        .into_string()
+        .map_err(|_| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                "Failed converting config directory string",
+            )
+        })?;
+
+    println!("{}", config_dir);
+
+    Ok(())
 }
 
 // Run the App

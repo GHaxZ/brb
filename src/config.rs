@@ -4,6 +4,7 @@ use serde_with::{serde_as, DefaultOnError};
 use std::{
     fs,
     io::{self, ErrorKind},
+    path::PathBuf,
 };
 
 #[derive(Debug, Deserialize, Clone)]
@@ -12,6 +13,25 @@ use std::{
 pub enum TomlColor {
     Rgb { r: u8, g: u8, b: u8 }, // An RGB color value
     Name(String), // The name of a color preset, such as "red", "yellow", "white", ...
+}
+
+impl TomlColor {
+    // Get a TomlColor from a color name, or None if this name was not found
+    pub fn from_name(name: &str) -> Option<Self> {
+        let name = name.to_lowercase();
+
+        match name.as_str() {
+            "black" => Some(Self::Name(name)),
+            "red" => Some(Self::Name(name)),
+            "green" => Some(Self::Name(name)),
+            "yellow" => Some(Self::Name(name)),
+            "blue" => Some(Self::Name(name)),
+            "magenta" => Some(Self::Name(name)),
+            "cyan" => Some(Self::Name(name)),
+            "white" => Some(Self::Name(name)),
+            _ => None,
+        }
+    }
 }
 
 /*
@@ -105,13 +125,7 @@ impl Default for Config {
 impl Config {
     // Load the configuration file
     pub fn load() -> io::Result<Self> {
-        // Get the OS specific configuration directory
-        let mut config_dir = dirs::config_dir()
-            .ok_or_else(|| io::Error::new(ErrorKind::NotFound, "Failed to get config directory"))?;
-
-        // Append "/brb/brb.toml"
-        config_dir.push("brb");
-        config_dir.push("brb.toml");
+        let config_dir = Self::get_config_dir()?;
 
         // If the config file exists
         if config_dir.is_file() {
@@ -127,6 +141,18 @@ impl Config {
             // Otherwise return the default config
             Ok(Self::default())
         }
+    }
+
+    pub fn get_config_dir() -> io::Result<PathBuf> {
+        // Get the OS specific configuration directory
+        let mut config_dir = dirs::config_dir()
+            .ok_or_else(|| io::Error::new(ErrorKind::NotFound, "Failed to get config directory"))?;
+
+        // Append "/brb/brb.toml"
+        config_dir.push("brb");
+        config_dir.push("brb.toml");
+
+        Ok(config_dir)
     }
 
     // Map a color name to an actual Color variant
@@ -158,8 +184,12 @@ impl Config {
      * Remaining functions are simple setters and getters
      */
 
+    pub fn set_color(&mut self, color: TomlColor) {
+        self.color = color;
+    }
+
     pub fn set_text(&mut self, text: String) {
-        self.text = text
+        self.text = text;
     }
 
     pub fn get_text(&self) -> String {
@@ -183,7 +213,7 @@ impl Config {
     }
 
     pub fn set_hide_timer(&mut self, hide_timer: bool) {
-        self.hide_timer = hide_timer
+        self.hide_timer = hide_timer;
     }
 
     pub fn is_hide_timer(&self) -> bool {
@@ -191,7 +221,7 @@ impl Config {
     }
 
     pub fn set_progress_bar(&mut self, progress_bar: bool) {
-        self.progress_bar = progress_bar
+        self.progress_bar = progress_bar;
     }
 
     pub fn is_progress_bar(&self) -> bool {
