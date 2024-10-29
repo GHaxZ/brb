@@ -324,11 +324,16 @@ fn execute_commands(commands: Vec<String>) -> io::Result<()> {
         if let Some(first) = parts.get(0) {
             let mut c = Command::new(first);
 
+            // Don't output errors, as this would mess with the TUI
             c.stdin(Stdio::null());
             c.stdout(Stdio::null());
             c.stderr(Stdio::null());
 
             c.args(&parts[1..]);
+
+            // Also ignore the Result in case the command is not found,
+            // as this would mess with the TUI
+            let _ = c.spawn();
         }
     }
 
