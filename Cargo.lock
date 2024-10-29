@@ -152,6 +152,7 @@ dependencies = [
  "ratatui",
  "serde",
  "serde_with",
+ "shlex",
  "textwrap",
  "tokio",
  "toml",

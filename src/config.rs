@@ -43,6 +43,8 @@ const DEFAULT_TWITCH_CHANNEL: Option<String> = None;
 const DEFAULT_CHAT: bool = false;
 const DEFAULT_HIDE_TIMER: bool = true;
 const DEFAULT_PROGRESS_BAR: bool = true;
+const DEFAULT_START_COMMANDS: Vec<String> = vec![];
+const DEFAULT_EXIT_COMMANDS: Vec<String> = vec![];
 
 // Implement Default by calling the default_color() function. We have to do this, because this will
 // be used in case the deserialization fails.
@@ -76,6 +78,10 @@ pub struct Config {
     hide_timer: bool, // Whether to hide the countdown when it's done
     #[serde(default = "default_progress_bar")]
     progress_bar: bool, // Whether to display the progress bar
+    #[serde(default = "default_start_commands")]
+    start_commands: Vec<String>, // Commands run when starting brb
+    #[serde(default = "default_exit_commands")]
+    exit_commands: Vec<String>, // Commands run when exiting brb
 }
 
 // This function will return the default color
@@ -108,6 +114,16 @@ fn default_progress_bar() -> bool {
     DEFAULT_PROGRESS_BAR
 }
 
+// This function will return the default start commands
+fn default_start_commands() -> Vec<String> {
+    DEFAULT_START_COMMANDS
+}
+
+// This function will return the default start commands
+fn default_exit_commands() -> Vec<String> {
+    DEFAULT_EXIT_COMMANDS
+}
+
 // Get default config
 impl Default for Config {
     fn default() -> Self {
@@ -118,6 +134,8 @@ impl Default for Config {
             chat: default_chat(),
             hide_timer: default_hide_timer(),
             progress_bar: default_progress_bar(),
+            start_commands: default_start_commands(),
+            exit_commands: default_exit_commands(),
         }
     }
 }
@@ -226,5 +244,13 @@ impl Config {
 
     pub fn is_progress_bar(&self) -> bool {
         self.progress_bar
+    }
+
+    pub fn get_start_commands(&self) -> Vec<String> {
+        self.start_commands.clone()
+    }
+
+    pub fn get_exit_commands(&self) -> Vec<String> {
+        self.exit_commands.clone()
     }
 }

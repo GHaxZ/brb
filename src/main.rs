@@ -1,6 +1,5 @@
 /*  TODO:
 *   Clean up the code
-*   Add a way to execute commands when starting and ending
 */
 use std::io;
 

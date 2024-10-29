@@ -8,7 +8,9 @@ use ratatui::{
     widgets::{Block, Borders, Widget},
     DefaultTerminal, Frame,
 };
+use shlex::Shlex;
 use std::io;
+use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 use tokio::runtime::{Builder, Runtime};
 use tui_big_text::{BigText, PixelSize};
@@ -54,26 +56,11 @@ impl App {
 
     // Run the app
     pub fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
-        // If the chat is enabled
-        if self.config.is_chat() {
-            // If a twitch channel was configured
-            if let Some(channel) = self.config.get_twitch_channel() {
-                // Create a new tokio runtime in case chat is enabled
-                self.runtime = Some(Builder::new_multi_thread().worker_threads(1).enable_all().build()?);
+        // Initialize the chat
+        self.init_chat()?;
 
-                // Create a new Twitch chat widget
-                self.chat = Some(TwitchChat::new(self.config.get_color(), channel));
-
-                // Run the chat on a blocking Tokio task
-                if let Some(chat) = self.chat.as_mut() {
-                    self.runtime.as_ref().unwrap().block_on(async {
-                        // Try starting the chat and return the result, so potential erros can be
-                        // propagated up
-                        return chat.start();
-                    })?;
-                }
-            }
-        }
+        // Run start commands
+        execute_commands(self.config.get_start_commands())?;
 
         // How often the UI should be forcefully redrawn
         let redraw_rate = Duration::from_millis(100);
@@ -104,8 +91,38 @@ impl App {
             terminal.draw(|frame| self.draw(frame))?;
         }
 
+        // Run exit commands before finishing the program
+        execute_commands(self.config.get_exit_commands())?;
+
         Ok(())
     }
+
+    // Initialize the chat
+    fn init_chat(&mut self) -> io::Result<()> {
+        // If the chat is enabled
+        if self.config.is_chat() {
+            // If a twitch channel was configured
+            if let Some(channel) = self.config.get_twitch_channel() {
+                // Create a new tokio runtime in case chat is enabled
+                self.runtime = Some(Builder::new_multi_thread().worker_threads(1).enable_all().build()?);
+
+                // Create a new Twitch chat widget
+                self.chat = Some(TwitchChat::new(self.config.get_color(), channel));
+
+                // Run the chat on a blocking Tokio task
+                if let Some(chat) = self.chat.as_mut() {
+                    self.runtime.as_ref().unwrap().block_on(async {
+                        // Try starting the chat and return the result, so potential erros can be
+                        // propagated up
+                        return chat.start();
+                    })?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
 
     // Update the time values
     fn update_time(&mut self) {
@@ -297,4 +314,23 @@ fn format_duration(duration: Duration) -> String {
     let mins = secs / 60;
     let secs = secs % 60;
     format!("{:02}:{:02}", mins, secs)
+}
+
+
+// Execute commands in the background
+fn execute_commands(commands: Vec<String>) -> io::Result<()> {
+    for command in commands {
+        let parts = Shlex::new(&command).collect::<Vec<String>>();
+        if let Some(first) = parts.get(0) {
+            let mut c = Command::new(first);
+
+            c.stdin(Stdio::null());
+            c.stdout(Stdio::null());
+            c.stderr(Stdio::null());
+
+            c.args(&parts[1..]);
+        }
+    }
+
+    Ok(())
 }
