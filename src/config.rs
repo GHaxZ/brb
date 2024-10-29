@@ -41,6 +41,7 @@ const DEFAULT_COLOR: &str = "white";
 const DEFAULT_TEXT: &str = "Be right back";
 const DEFAULT_TWITCH_CHANNEL: Option<String> = None;
 const DEFAULT_CHAT: bool = false;
+const DEFAULT_SONG_DISPLAY: bool = false;
 const DEFAULT_HIDE_TIMER: bool = true;
 const DEFAULT_PROGRESS_BAR: bool = true;
 const DEFAULT_START_COMMANDS: Vec<String> = vec![];
@@ -74,6 +75,8 @@ pub struct Config {
     twitch_channel: Option<String>,
     #[serde(default = "default_chat")]
     chat: bool, // Whether to display the chat
+    #[serde(default = "default_song_display")]
+    song_display: bool, // Whether to display the current song
     #[serde(default = "default_hide_timer")]
     hide_timer: bool, // Whether to hide the countdown when it's done
     #[serde(default = "default_progress_bar")]
@@ -104,6 +107,11 @@ fn default_chat() -> bool {
     DEFAULT_CHAT
 }
 
+// This function will return the default song display
+fn default_song_display() -> bool {
+    DEFAULT_SONG_DISPLAY
+}
+
 // This function will return the default hide timer
 fn default_hide_timer() -> bool {
     DEFAULT_HIDE_TIMER
@@ -132,6 +140,7 @@ impl Default for Config {
             text: default_text(),
             twitch_channel: default_twitch_channel(),
             chat: default_chat(),
+            song_display: default_song_display(),
             hide_timer: default_hide_timer(),
             progress_bar: default_progress_bar(),
             start_commands: default_start_commands(),
@@ -228,6 +237,14 @@ impl Config {
 
     pub fn is_chat(&self) -> bool {
         self.chat
+    }
+
+    pub fn set_song_display(&mut self, song_display: bool) {
+        self.song_display = song_display;
+    }
+
+    pub fn is_song_display(&self) -> bool {
+        self.song_display
     }
 
     pub fn set_hide_timer(&mut self, hide_timer: bool) {

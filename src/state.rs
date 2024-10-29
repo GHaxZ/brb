@@ -17,10 +17,12 @@ use tui_big_text::{BigText, PixelSize};
 
 use crate::chat::TwitchChat;
 use crate::config::Config;
+use crate::song::SongDisplay;
 
 pub struct App {
     config: Config,                      // The config used for this App
     chat: Option<TwitchChat>,            // The TwitchChat widget if enabled
+    song_display: Option<SongDisplay>,   // The current song display widget if enabled
     runtime: Option<Runtime>,            // Tokio runtime used if chat is enabled
     start_time: Option<Instant>,         // The start time of the countdown
     original_duration: Option<Duration>, // The original duration of the countdown
@@ -34,6 +36,7 @@ impl Default for App {
         Self {
             config: Config::default(),
             chat: None,
+            song_display: None,
             runtime: None,
             start_time: None,
             original_duration: None,
@@ -59,6 +62,9 @@ impl App {
         // Initialize the chat
         self.init_chat()?;
 
+        // Initialize the song display
+        self.init_song_display();
+
         // Run start commands
         execute_commands(self.config.get_start_commands())?;
 
@@ -81,10 +87,16 @@ impl App {
                 self.update_time();
                 last_tick = now;
 
+                // Update the current song 
+                if let Some(song_display) = self.song_display.as_mut() {
+                    song_display.poll_song();
+                }
+
                 // Poll chat messages
                 if let Some(chat) = self.chat.as_mut() {
                     chat.poll_messages();
                 }
+
             }
 
             // Draw the UI
@@ -123,6 +135,11 @@ impl App {
         Ok(())
     }
 
+    fn init_song_display(&mut self) {
+        if self.config.is_song_display() {
+            self.song_display = Some(SongDisplay::new());
+        }
+    }
 
     // Update the time values
     fn update_time(&mut self) {
@@ -301,6 +318,16 @@ impl Widget for &App {
 
         text_display.render(text_area, buf);
 
+
+        // If we have song display, render it
+        if let Some(song_text) = &self.song_display {
+            let song_display = Block::new().padding(Padding::horizontal(1)).borders(Borders::NONE);
+
+            let song_display_area = song_display.inner(vertical_layout[0]);
+
+            song_text.render(song_display_area, buf);
+        }
+
         // If we have a chat, render it
         if let Some(chat) = &self.chat {
             chat.render(horizontal_layout[2], buf);
@@ -333,7 +360,7 @@ fn execute_commands(commands: Vec<String>) -> io::Result<()> {
 
             // Also ignore the Result in case the command is not found,
             // as this would mess with the TUI
-            let _ = c.spawn();
+            let _ = c.spawn()?;
         }
     }
 

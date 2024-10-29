@@ -43,6 +43,10 @@ pub fn parse() -> io::Result<()> {
         config.set_chat(chat);
     }
 
+    if let Some(&song_display) = matches.get_one::<bool>("song-display") {
+        config.set_song_display(song_display);
+    }
+
     if let Some(twitch) = matches.get_one::<String>("twitch") {
         config.set_twitch_channel(twitch.clone());
     }
@@ -100,6 +104,16 @@ fn command(config: &Config) -> Command {
                 .value_parser(clap::value_parser!(bool))
                 .default_value(if config.is_chat() { "true" } else { "false" })
                 .help("Show the chat")
+                .group("customize"),
+            Arg::new("song-display")
+                .long("song-display")
+                .value_parser(clap::value_parser!(bool))
+                .default_value(if config.is_song_display() {
+                    "true"
+                } else {
+                    "false"
+                })
+                .help("Show the current song using spotic")
                 .group("customize"),
             // Set the twitch channel
             Arg::new("twitch")
