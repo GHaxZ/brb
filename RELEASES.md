@@ -5,6 +5,8 @@
 - Added start and exit commands feature
 - Added current song display feature (requires ![spotic](https://github.com/GHaxZ/spotic))
 - Added configurable outer padding
+
+### Improvements
 - Improved error handling
 - Made errors more user-friendly
 
