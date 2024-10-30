@@ -1,4 +1,7 @@
-use std::process::Command;
+use std::{
+    io::Read,
+    process::{Child, Command, Stdio},
+};
 
 use ratatui::{
     buffer::Buffer,
@@ -8,27 +11,45 @@ use ratatui::{
 
 pub struct SongDisplay {
     current_song: String,
+    child: Option<Child>,
 }
 
 impl SongDisplay {
     pub fn new() -> Self {
         Self {
             current_song: "Getting current song ...".to_string(),
+            child: None,
         }
     }
 
     pub fn poll_song(&mut self) {
-        let mut command = Command::new("sc");
-        command.arg("current");
+        if let Some(mut child) = self.child.take() {
+            if let Some(mut stdout) = child.stdout.take() {
+                let mut buf = String::new();
 
-        let text = match command.output() {
-            Ok(o) => String::from_utf8(o.stdout).map_err(|_| "Failed reading output"),
-            Err(_) => Err("Failed running spotic"),
-        };
+                self.current_song = match stdout.read_to_string(&mut buf) {
+                    Ok(_) => buf,
+                    Err(_) => "Failed reading output".to_string(),
+                };
 
-        match text {
-            Ok(s) => self.current_song = s,
-            Err(e) => self.current_song = format!("Error: {}", e),
+                self.child = Some(child);
+                return;
+            }
+        }
+
+        match Command::new("sc")
+            .arg("current")
+            .stdout(Stdio::piped())
+            .spawn()
+        {
+            Ok(child) => self.child = Some(child),
+            Err(_) => self.current_song = "Failed running spotic".to_string(),
+        }
+    }
+
+    pub fn stop(&mut self) {
+        if let Some(mut c) = self.child.take() {
+            let _ = c.kill();
         }
     }
 }

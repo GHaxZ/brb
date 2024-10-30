@@ -66,7 +66,7 @@ impl App {
         self.init_song_display();
 
         // Run start commands
-        execute_commands(self.config.get_start_commands())?;
+        execute_commands(self.config.get_start_commands());
 
         // How often the UI should be forcefully redrawn
         let redraw_rate = Duration::from_millis(100);
@@ -103,8 +103,6 @@ impl App {
             terminal.draw(|frame| self.draw(frame))?;
         }
 
-        // Run exit commands before finishing the program
-        execute_commands(self.config.get_exit_commands())?;
 
         Ok(())
     }
@@ -202,6 +200,14 @@ impl App {
 
     // Exit the App
     fn exit(&mut self) {
+        // Run exit commands before finishing the program
+        execute_commands(self.config.get_exit_commands());
+
+        // Stop the song display
+        if let Some(mut s) = self.song_display.take() {
+            s.stop();
+        }
+
         self.exit = true;
     }
 }
@@ -345,13 +351,13 @@ fn format_duration(duration: Duration) -> String {
 
 
 // Execute commands in the background
-fn execute_commands(commands: Vec<String>) -> io::Result<()> {
+fn execute_commands(commands: Vec<String>) {
     for command in commands {
         let parts = Shlex::new(&command).collect::<Vec<String>>();
         if let Some(first) = parts.get(0) {
             let mut c = Command::new(first);
 
-            // Don't output errors, as this would mess with the TUI
+            // Don't output anything, as this would mess with the TUI
             c.stdin(Stdio::null());
             c.stdout(Stdio::null());
             c.stderr(Stdio::null());
@@ -360,9 +366,7 @@ fn execute_commands(commands: Vec<String>) -> io::Result<()> {
 
             // Also ignore the Result in case the command is not found,
             // as this would mess with the TUI
-            let _ = c.spawn()?;
+            let _ = c.spawn();
         }
     }
-
-    Ok(())
 }
