@@ -13,10 +13,15 @@
 - **Live Twitch chat**
   - Displays Twitch name colors
   - No authentication is required
+- Current song display
+  - Display current Spotify song
+  - Requires ![spotic](https://github.com/GHaxZ/spotic)
 - **Configurability**
+  - Automatically execute commands on start or exit
   - Hide elements
   - Change text
   - Change colors
+  - Adjustable padding
 - **Lightweight**
   - ~6MB RAM no chat, ~10MB with chat
 
@@ -117,11 +122,24 @@ text = "Be right back"
 # Enable/disable the chat
 chat = true
 
+# Enable/disable the current song display (requires "spotic" to be installed)
+# Check out "https://github.com/GHaxZ/spotic" for more information
+song_display = true
+
 # Hide the timer after the time is up
 hide_timer = true
 
 # Enable/disable the progress bar
 progress_bar = true
+
+# Adjust the outer padding
+padding = 1
+
+# Commands which will execute in order at start
+start_commands = ["sc vo +10", "echo 'Be right back' > status.txt"]
+
+# Commands which will execute in order when exiting
+exit_commands = ["sc vo -10", "echo '' > status.txt"]
 ```
 
 ## Contributing
