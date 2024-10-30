@@ -63,6 +63,10 @@ pub fn parse() -> io::Result<()> {
         config.set_progress_bar(progress_bar);
     }
 
+    if let Some(&padding) = matches.get_one::<u16>("padding") {
+        config.set_padding(padding);
+    }
+
     // Handle time parsing from command-line
     if let Some(args) = matches.get_many::<TimeValue>("time") {
         let mut total_secs: u32 = 0;
@@ -105,6 +109,7 @@ fn command(config: &Config) -> Command {
                 .default_value(if config.is_chat() { "true" } else { "false" })
                 .help("Show the chat")
                 .group("customize"),
+            // Enable/disable current song display
             Arg::new("song-display")
                 .long("song-display")
                 .value_parser(clap::value_parser!(bool))
@@ -150,6 +155,12 @@ fn command(config: &Config) -> Command {
                     "false"
                 })
                 .help("Display a progress bar of the timer's progress")
+                .group("customize"),
+            // Set outer padding
+            Arg::new("padding")
+                .long("padding")
+                .value_parser(clap::value_parser!(u16))
+                .help("Set the outer padding")
                 .group("customize"),
             // The positional time arguments "1h 2m 3s"
             Arg::new("time")

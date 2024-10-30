@@ -215,6 +215,10 @@ impl App {
 // Implement Widget for the App so it can be rendered
 impl Widget for &App {
     fn render(self, area: Rect, buf: &mut Buffer) {
+        let outer_block = Block::new().borders(Borders::NONE).padding(Padding::uniform(self.config.get_padding()));
+
+        let inner_area = outer_block.inner(area);
+
         // Split the text which should be displayed into multiple lines at newline characters
         let text = self.config.get_text();
         let text_lines: Vec<Line> = text.split('\n').map(Line::from).collect();
@@ -240,8 +244,9 @@ impl Widget for &App {
         // Split the entire terminal area into a layout based on the constraints
         let horizontal_layout = Layout::default()
             .direction(Direction::Horizontal)
+            .spacing(1)
             .constraints(horizontal_constraints)
-            .split(area);
+            .split(inner_area);
 
         // Layout constraints for horizontally aligned widgets
         let vertical_constraints = 
@@ -324,20 +329,17 @@ impl Widget for &App {
 
         text_display.render(text_area, buf);
 
-
         // If we have song display, render it
         if let Some(song_text) = &self.song_display {
-            let song_display = Block::new().padding(Padding::horizontal(1)).borders(Borders::NONE);
-
-            let song_display_area = song_display.inner(vertical_layout[0]);
-
-            song_text.render(song_display_area, buf);
+            song_text.render(vertical_layout[0], buf);
         }
 
         // If we have a chat, render it
         if let Some(chat) = &self.chat {
             chat.render(horizontal_layout[2], buf);
         }
+
+        outer_block.render(area, buf);
     }
 }
 
