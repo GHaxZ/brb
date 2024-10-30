@@ -1,11 +1,8 @@
+use anyhow::{Context, Result};
 use ratatui::style::Color;
 use serde::Deserialize;
 use serde_with::{serde_as, DefaultOnError};
-use std::{
-    fs,
-    io::{self, ErrorKind},
-    path::PathBuf,
-};
+use std::{fs, path::PathBuf};
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(untagged)]
@@ -160,29 +157,27 @@ impl Default for Config {
 
 impl Config {
     // Load the configuration file
-    pub fn load() -> io::Result<Self> {
-        let config_dir = Self::get_config_dir()?;
+    pub fn load() -> Result<Self> {
+        let config_dir = Self::get_config_dir().context("Failed getting config directory")?;
 
         // If the config file exists
         if config_dir.is_file() {
             // Read the file
-            let config_str = fs::read_to_string(config_dir)?;
+            let config_str =
+                fs::read_to_string(config_dir).context("Failed reading config file")?;
 
             // Deserialize it
-            match toml::from_str::<Config>(&config_str) {
-                Ok(config) => Ok(config),
-                Err(err) => Err(io::Error::new(ErrorKind::InvalidData, err.to_string())),
-            }
+            toml::from_str::<Config>(&config_str).context("Failed deserializing configuration file")
         } else {
             // Otherwise return the default config
             Ok(Self::default())
         }
     }
 
-    pub fn get_config_dir() -> io::Result<PathBuf> {
+    pub fn get_config_dir() -> Result<PathBuf> {
         // Get the OS specific configuration directory
-        let mut config_dir = dirs::config_dir()
-            .ok_or_else(|| io::Error::new(ErrorKind::NotFound, "Failed to get config directory"))?;
+        let mut config_dir =
+            dirs::config_dir().context("Failed getting OS conventional config directory")?;
 
         // Append "/brb/brb.toml"
         config_dir.push("brb");

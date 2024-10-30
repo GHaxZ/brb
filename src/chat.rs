@@ -3,6 +3,7 @@
 *   Clean up the abomination that is line wrapping (please lord forgive me)
 */
 
+use anyhow::{Context, Error, Result};
 use ratatui::{
     buffer::Buffer,
     layout::{Alignment, Rect},
@@ -10,7 +11,6 @@ use ratatui::{
     text::{Line, Span, Text},
     widgets::{Block, BorderType, Borders, List, ListDirection, Padding, Widget},
 };
-use std::io;
 use std::sync::{Arc, Mutex};
 use tokio::runtime::{Builder, Runtime};
 use tokio::sync::mpsc;
@@ -40,7 +40,7 @@ impl TwitchClient {
     }
 
     // Start this twitch client on the provided channel
-    pub fn start(&mut self, channel: String) -> io::Result<()> {
+    pub fn start(&mut self, channel: String) -> Result<()> {
         let tx = self.tx.clone();
         // Create a default twitch client config
         let config = ClientConfig::default();
@@ -53,7 +53,7 @@ impl TwitchClient {
             // Join the provided channel, return io::Error if this fails
             client
                 .join(channel.clone())
-                .map_err(|e| io::Error::new(io::ErrorKind::NotConnected, e.to_string()))?;
+                .context("Failed connecting to Twitch channel")?;
 
             // While there are messages incoming
             while let Some(message) = incoming_messages.recv().await {
@@ -74,7 +74,7 @@ impl TwitchClient {
             }
 
             // We have to give type annotations here
-            Ok::<(), io::Error>(())
+            Ok::<(), Error>(())
         });
 
         Ok(())
@@ -164,8 +164,10 @@ impl TwitchChat {
     }
 
     // Start receiving messages for this TwitchChat
-    pub fn start(&mut self) -> io::Result<()> {
-        self.twitch_client.start(self.channel_name.clone())
+    pub fn start(&mut self) -> Result<()> {
+        self.twitch_client
+            .start(self.channel_name.clone())
+            .context("Failed starting Twitch client")
     }
 
     // Poll for new messages

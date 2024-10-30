@@ -7,6 +7,7 @@ description = "Terminal be right back tool"
 repository = "https://github.com/GHaxZ/brb/"
 
 [dependencies]
+anyhow = "1.0.91"
 clap = "4.5.17"
 dirs = "5.0.1"
 ratatui = "0.28.1"

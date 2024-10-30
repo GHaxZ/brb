@@ -1,4 +1,5 @@
 use ratatui::widgets::{Gauge, Padding};
+use anyhow::{Context, Result};
 use ratatui::{
     buffer::Buffer,
     crossterm::event::{self, Event, KeyCode, KeyEvent},
@@ -9,7 +10,6 @@ use ratatui::{
     DefaultTerminal, Frame,
 };
 use shlex::Shlex;
-use std::io;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 use tokio::runtime::{Builder, Runtime};
@@ -58,7 +58,7 @@ impl App {
     }
 
     // Run the app
-    pub fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
+    pub fn run(&mut self, terminal: &mut DefaultTerminal) -> Result<()> {
         // Initialize the chat
         self.init_chat()?;
 
@@ -100,7 +100,7 @@ impl App {
             }
 
             // Draw the UI
-            terminal.draw(|frame| self.draw(frame))?;
+            terminal.draw(|frame| self.draw(frame)).context("Failed drawing UI")?;
         }
 
 
@@ -108,13 +108,13 @@ impl App {
     }
 
     // Initialize the chat
-    fn init_chat(&mut self) -> io::Result<()> {
+    fn init_chat(&mut self) -> Result<()> {
         // If the chat is enabled
         if self.config.is_chat() {
             // If a twitch channel was configured
             if let Some(channel) = self.config.get_twitch_channel() {
                 // Create a new tokio runtime in case chat is enabled
-                self.runtime = Some(Builder::new_multi_thread().worker_threads(1).enable_all().build()?);
+                self.runtime = Some(Builder::new_multi_thread().worker_threads(1).enable_all().build().context("Failed initializing async runtime")?);
 
                 // Create a new Twitch chat widget
                 self.chat = Some(TwitchChat::new(self.config.get_color(), channel));
@@ -124,8 +124,8 @@ impl App {
                     self.runtime.as_ref().unwrap().block_on(async {
                         // Try starting the chat and return the result, so potential erros can be
                         // propagated up
-                        return chat.start();
-                    })?;
+                        chat.start()
+                    }).context("Failed starting the chat")?;
                 }
             }
         }
@@ -182,9 +182,9 @@ impl App {
     }
 
     // Handle events
-    fn handle_events(&mut self) -> io::Result<()> {
-        while event::poll(Duration::from_millis(50))? {
-            if let Event::Key(key_event) = event::read()? {
+    fn handle_events(&mut self) -> Result<()> {
+        while event::poll(Duration::from_millis(50)).context("Failed polling terminal events")? {
+            if let Event::Key(key_event) = event::read().context("Failed reading key events")? {
                 self.handle_key_event(key_event);
             }
         }
@@ -356,7 +356,7 @@ fn format_duration(duration: Duration) -> String {
 fn execute_commands(commands: Vec<String>) {
     for command in commands {
         let parts = Shlex::new(&command).collect::<Vec<String>>();
-        if let Some(first) = parts.get(0) {
+        if let Some(first) = parts.first() {
             let mut c = Command::new(first);
 
             // Don't output anything, as this would mess with the TUI

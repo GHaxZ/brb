@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 use std::{io, time::Duration};
 
 use crate::{
@@ -22,7 +23,7 @@ struct TimeValue {
 }
 
 // Parse CLI arguments
-pub fn parse() -> io::Result<()> {
+pub fn parse() -> Result<()> {
     // Create the app and load the config file
     let mut app = App::default();
     let mut config = Config::load()?;
@@ -255,7 +256,7 @@ fn color_arg_parser(arg: &str) -> Result<TomlColor, String> {
 }
 
 // Output the config dir
-fn output_dir() -> io::Result<()> {
+fn output_dir() -> Result<()> {
     let config_dir = Config::get_config_dir()?
         .into_os_string()
         .into_string()
@@ -272,9 +273,9 @@ fn output_dir() -> io::Result<()> {
 }
 
 // Run the App
-fn run_app(mut app: App) -> io::Result<()> {
+fn run_app(mut app: App) -> Result<()> {
     let mut terminal = ratatui::init();
-    app.run(&mut terminal)?;
+    app.run(&mut terminal).context("Failed initializing UI")?;
     ratatui::restore();
     Ok(())
 }
