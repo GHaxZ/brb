@@ -40,6 +40,8 @@ impl SongDisplay {
         match Command::new("sc")
             .arg("current")
             .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .stdin(Stdio::null())
             .spawn()
         {
             Ok(child) => self.child = Some(child),
