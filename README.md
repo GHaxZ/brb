@@ -2,7 +2,7 @@
 
 #### For when you'll be right back!
 
-![demo.gif](https://github.com/GHaxZ/brb/blob/master/.github/demo.gif)
+![demo.gif](https://raw.githubusercontent.com/GHaxZ/brb/refs/heads/master/.github/demo.gif)
 
 "**brb**" is a **terminal live streaming tool** that lets your viewers know that you are currently away in a unique way!
 
