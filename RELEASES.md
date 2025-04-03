@@ -1,3 +1,9 @@
+# Version 0.1.21
+
+### Improvements
+
+- Switch from openssl to rustls
+
 # Version 0.1.2
 
 ### Features
@@ -7,6 +13,7 @@
 - Added configurable outer padding
 
 ### Improvements
+
 - Improved error handling
 - Made errors more user-friendly
 
