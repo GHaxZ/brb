@@ -18,7 +18,10 @@ textwrap = "0.16.1"
 tokio = { version = "1.40.0", features = ["full"] }
 toml = "0.8.19"
 tui-big-text = "0.6.0"
-twitch-irc = "5.0.1"
+# Feature flags are to avoid openssl
+twitch-irc = { version = "5.0.1", features = [
+  "transport-tcp-rustls-native-roots",
+], default-features = false }
 
 # The profile that 'cargo dist' will build with
 [profile.dist]
